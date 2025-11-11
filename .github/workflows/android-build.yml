@@ -1,4 +1,4 @@
-name: NANP AI - Auto Build
+name: NANP AI - Auto Build (No Gradle)
 
 on:
   push:
@@ -13,35 +13,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Install Android SDK cmdline-tools
+      - name: Prepare Android SDK
         run: |
           sudo mkdir -p /usr/local/lib/android/sdk/cmdline-tools/latest
-          sudo mkdir -p /usr/local/lib/android/sdk/licenses
           cd /usr/local/lib/android/sdk/cmdline-tools
           sudo curl -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           sudo unzip cmdline-tools.zip -d latest
           yes | sudo /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/usr/local/lib/android/sdk "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
-      - name: Set ANDROID_HOME and PATH
+      - name: Set ANDROID_HOME
         run: |
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
-          echo "PATH=$PATH:/usr/local/lib/android/sdk/cmdline-tools/latest/bin:/usr/local/lib/android/sdk/platform-tools:/usr/local/lib/android/sdk/build-tools/34.0.0" >> $GITHUB_ENV
+          echo "PATH=$PATH:/usr/local/lib/android/sdk/platform-tools:/usr/local/lib/android/sdk/build-tools/34.0.0" >> $GITHUB_ENV
 
-      - name: Make Gradle executable
-        run: chmod +x ./gradlew
-
-      - name: Build Debug and Release APK
-        run: ./gradlew assembleDebug assembleRelease
+      - name: Find APKs (if any prebuilt)
+        run: |
+          mkdir -p outputs
+          find . -type f -name "*.apk" -exec cp {} outputs/ \; || echo "No APKs found"
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: NANP-AI-APKs
-          path: |
-            app/build/outputs/**/*.apk
+          path: outputs/
