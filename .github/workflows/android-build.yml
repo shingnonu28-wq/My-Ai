@@ -2,7 +2,9 @@ name: NANP AI - Auto Build (No Gradle)
 
 on:
   push:
-    branches: [ "main", "feature-improvements" ]
+    branches:
+      - main
+      - feature-improvements
   workflow_dispatch:
 
 jobs:
@@ -10,29 +12,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare Android SDK
+      - name: Find or build APKs
         run: |
-          sudo mkdir -p /usr/local/lib/android/sdk/cmdline-tools/latest
-          cd /usr/local/lib/android/sdk/cmdline-tools
-          sudo curl -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          sudo unzip cmdline-tools.zip -d latest
-          yes | sudo /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/usr/local/lib/android/sdk "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          echo "🔍 Checking for APKs in releases/ ..."
+          mkdir -p output-apks
+          if ls releases/*.apk 1> /dev/null 2>&1; then
+            echo "📦 Found existing APKs in releases/ folder."
+            cp releases/*.apk output-apks/
+          else
+            echo "⚠️ No prebuilt APK found, trying Gradle fallback..."
+            if [ -f "./gradlew" ]; then
+              chmod +x ./gradlew
+              ./gradlew assembleDebug assembleRelease || echo "Gradle build failed."
+              find . -type f -name "*.apk" -exec cp {} output-apks/ \;
+            else
+              echo "❌ No gradlew found and no APK provided. Skipping build."
+            fi
+          fi
+          ls -R output-apks || echo "No APKs collected."
 
-      - name: Set ANDROID_HOME
-        run: |
-          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
-          echo "PATH=$PATH:/usr/local/lib/android/sdk/platform-tools:/usr/local/lib/android/sdk/build-tools/34.0.0" >> $GITHUB_ENV
-
-      - name: Find APKs (if any prebuilt)
-        run: |
-          mkdir -p outputs
-          find . -type f -name "*.apk" -exec cp {} outputs/ \; || echo "No APKs found"
-
-      - name: Upload APKs
+      - name: Upload APKs as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: NANP-AI-APKs
-          path: outputs/
+          path: output-apks
