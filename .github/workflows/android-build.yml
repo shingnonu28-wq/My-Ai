@@ -1,0 +1,44 @@
+name: NANP AI - Auto Build
+
+on:
+  push:
+    branches: [ main, feature-improvements ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Install Android SDK tools
+        run: |
+          sudo mkdir -p /usr/local/lib/android/sdk/cmdline-tools
+          sudo yes | sdkmanager --licenses || true
+          sudo sdkmanager --install "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew || true
+
+      - name: Build debug and release APK
+        run: ./gradlew assembleDebug assembleRelease || true
+
+      - name: Find and upload APKs
+        run: |
+          mkdir -p output
+          find . -name "*.apk" -exec cp {} output/ \;
+        shell: bash
+
+      - name: Upload built APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: NANP-AI-APKs
+          path: output/
